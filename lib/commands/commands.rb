@@ -189,3 +189,22 @@ command 'create-from-local' do
   git "remote add origin git@github.com:#{github_user}/#{repo}.git"
   git_exec "push origin master"
 end
+
+desc "Build repository's gem locally with username like on GitHub; username defaults to github.user git configuration if available."
+usage "github build-ns [username] [path to gemspec]"
+flags :valid => "validate gemspec before building"
+command 'build-ns' do |username, gemspec|
+  username ||= git("config github.user")
+  gemspec ||= File.join('./', Dir['*.gemspec'].first)
+  
+  die "username required; either supply a username run `github config [username] [reponame]`" unless username && username != ""
+  
+  spec = nil
+  data = File.read(gemspec)
+  Thread.new { spec = eval("$SAFE = 3\n#{data}") }.join
+  spec.name = "#{username}-#{spec.name}"
+
+  spec.validate if options[:valid]
+
+  Gem::Builder.new(spec).build
+end
